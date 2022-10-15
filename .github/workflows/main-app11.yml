@@ -1,0 +1,53 @@
+
+name: build app11
+
+env:
+  GitHubMail: "84674445+Zypernia@users.noreply.github.com"
+  GitHubName: "Zypernia"
+  CfToken: ${{ secrets.CF_TOKEN_11 }}
+  GistUrl: ${{ secrets.GIST_URL_11 }}
+
+on:
+  push:
+    paths:
+      - 'records/app11.txt'
+  workflow_dispatch:
+
+jobs:
+  riobuild:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: styfle/cancel-workflow-action@0.11.0
+        name: "Cancel duplicate workflow runs"
+        with:
+          all_but_latest: true
+          access_token: ${{ github.token }}
+
+      - name: "Delete old runs"
+        uses: Mattraks/delete-workflow-runs@v2
+        with:
+          token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          delete_workflow_pattern: "main-app11.yml"
+          retain_days: 0
+          keep_minimum_runs: 0
+
+      - name: "Configurate git"
+        run: |
+          git config --global user.name ${GitHubName}
+          git config --global user.email ${GitHubMail}
+          git config --global credential.helper store
+          echo "https://${{ secrets.GH_TOK }}@github.com" > ~/.git-credentials
+      - name: "Run the build file"
+        timeout-minutes: 356
+        continue-on-error: true
+        run: |
+          parallel -u ::: 'curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb && sudo dpkg -i cloudflared.deb && rm cloudflared.deb && sudo cloudflared service install ${CfToken}' 'git clone https://github.com/eyMarv/clean-it.git sanitize && cd sanitize && sudo bash cleanit.sh && cd .. && rm -rf sanitize' 'git clone https://${{ secrets.GH_TOK }}@github.com/eyMarv/MirrorCap mcap && cd mcap && curl -L --output docker-compose.yml ${GistUrl} && docker-compose up --build'
+      - name: "Remove obsolete build files"
+        run: |
+          git clone https://github.com/${GITHUB_REPOSITORY} vwlupo
+          cd vwlupo || exit 1
+          echo $(( RANDOM - ( RANDOM % RANDOM ) )) > records/app11.txt
+          git add records/app11.txt
+          git commit -m "New app11 version | [$(date -u +%D-%T%P)]"
+          git push -q "https://${{ secrets.GH_TOK }}@github.com/${GITHUB_REPOSITORY}" -f HEAD:main || exit 1
